@@ -1,0 +1,12 @@
+<RCC>
+    <qresource prefix="/">
+        <file alias="maps/russia.svg">resources/maps/russia.svg</file>
+        <file alias="schemes/plan_mo.svg">resources/schemes/plan_mo.svg</file>
+        <file alias="schemes/antenna.svg">resources/schemes/antenna.svg</file>
+        <file alias="icons/app.ico">resources/icons/app.ico</file>
+        <file alias="icons/sensor_types/temperature.svg">resources/icons/sensor_types/temperature.svg</file>
+        <file alias="icons/sensor_types/humidity.svg">resources/icons/sensor_types/humidity.svg</file>
+        <file alias="icons/sensor_types/co2.svg">resources/icons/sensor_types/co2.svg</file>
+        <file alias="styles/dark_style.qss">resources/styles/dark_style.qss</file>
+    </qresource>
+</RCC>

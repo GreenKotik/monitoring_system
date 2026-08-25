@@ -1,0 +1,368 @@
+/* Основные цвета */
+QWidget {
+    background-color: #1e1e2e;
+    color: #cdd6f4;
+    font-family: "Segoe UI", "Microsoft Sans Serif", sans-serif;
+    font-size: 10pt;
+}
+
+/* Главное окно */
+QMainWindow {
+    background-color: #1e1e2e;
+}
+
+/* Меню */
+QMenuBar {
+    background-color: #313244;
+    color: #cdd6f4;
+    border-bottom: 1px solid #45475a;
+}
+
+QMenuBar::item {
+    padding: 6px 12px;
+    background-color: transparent;
+}
+
+QMenuBar::item:selected {
+    background-color: #45475a;
+}
+
+QMenu {
+    background-color: #313244;
+    border: 1px solid #45475a;
+}
+
+QMenu::item {
+    padding: 6px 24px;
+}
+
+QMenu::item:selected {
+    background-color: #45475a;
+}
+
+/* Панели инструментов */
+QToolBar {
+    background-color: #313244;
+    border: none;
+    border-bottom: 1px solid #45475a;
+    spacing: 4px;
+    padding: 4px;
+}
+
+QToolButton {
+    background-color: transparent;
+    border: none;
+    border-radius: 4px;
+    padding: 6px 10px;
+    color: #cdd6f4;
+}
+
+QToolButton:hover {
+    background-color: #45475a;
+}
+
+QToolButton:pressed {
+    background-color: #585b70;
+}
+
+/* Панель инструментов (sidebar) */
+#toolbarWidget {
+    background-color: #313244;
+    border-right: 1px solid #45475a;
+    min-width: 260px;
+    max-width: 320px;
+}
+
+#toolbarWidget QLabel {
+    color: #cdd6f4;
+}
+
+#toolbarWidget QPushButton {
+    background-color: #45475a;
+    border: none;
+    border-radius: 4px;
+    padding: 8px 12px;
+    color: #cdd6f4;
+    text-align: left;
+}
+
+#toolbarWidget QPushButton:hover {
+    background-color: #585b70;
+}
+
+#toolbarWidget QPushButton:pressed {
+    background-color: #6c7086;
+}
+
+#toolbarWidget QPushButton#backButton {
+    background-color: transparent;
+    padding: 4px 8px;
+}
+
+#toolbarWidget QPushButton#backButton:hover {
+    background-color: #45475a;
+}
+
+#toolbarWidget QListWidget {
+    background-color: #1e1e2e;
+    border: 1px solid #45475a;
+    border-radius: 4px;
+    padding: 4px;
+    outline: none;
+}
+
+#toolbarWidget QListWidget::item {
+    padding: 6px 8px;
+    border-radius: 4px;
+}
+
+#toolbarWidget QListWidget::item:hover {
+    background-color: #45475a;
+}
+
+#toolbarWidget QListWidget::item:selected {
+    background-color: #585b70;
+}
+
+/* Карта */
+#mapWidget {
+    background-color: #1e1e2e;
+    border: none;
+}
+
+/* Хлебные крошки */
+#breadcrumbWidget {
+    background-color: #313244;
+    border-bottom: 1px solid #45475a;
+    padding: 4px 12px;
+}
+
+#breadcrumbWidget QLabel {
+    color: #6c7086;
+    padding: 4px 6px;
+}
+
+#breadcrumbWidget QLabel:hover {
+    color: #89b4fa;
+    text-decoration: underline;
+}
+
+#breadcrumbWidget QLabel[active="true"] {
+    color: #89b4fa;
+    font-weight: bold;
+}
+
+/* Таблицы */
+QTableWidget {
+    background-color: #1e1e2e;
+    border: 1px solid #45475a;
+    border-radius: 4px;
+    gridline-color: #313244;
+}
+
+QTableWidget::item {
+    padding: 4px 8px;
+}
+
+QTableWidget::item:selected {
+    background-color: #45475a;
+}
+
+QHeaderView::section {
+    background-color: #313244;
+    padding: 4px 8px;
+    border: none;
+    border-right: 1px solid #45475a;
+    font-weight: bold;
+}
+
+/* Сплиттер */
+QSplitter::handle {
+    background-color: #45475a;
+}
+
+/* Статус бар */
+QStatusBar {
+    background-color: #313244;
+    color: #6c7086;
+    border-top: 1px solid #45475a;
+}
+
+/* Диалоги */
+QDialog {
+    background-color: #1e1e2e;
+}
+
+QDialog QPushButton {
+    background-color: #45475a;
+    border: none;
+    border-radius: 4px;
+    padding: 8px 16px;
+    color: #cdd6f4;
+}
+
+QDialog QPushButton:hover {
+    background-color: #585b70;
+}
+
+QDialog QPushButton[acceptButton="true"] {
+    background-color: #89b4fa;
+    color: #1e1e2e;
+}
+
+QDialog QPushButton[acceptButton="true"]:hover {
+    background-color: #74c7ec;
+}
+
+/* Поля ввода */
+QLineEdit, QTextEdit, QComboBox, QSpinBox, QDoubleSpinBox {
+    background-color: #1e1e2e;
+    border: 1px solid #45475a;
+    border-radius: 4px;
+    padding: 6px 8px;
+    color: #cdd6f4;
+    selection-background-color: #89b4fa;
+}
+
+QLineEdit:focus, QTextEdit:focus {
+    border-color: #89b4fa;
+}
+
+/* Вкладки */
+QTabWidget::pane {
+    border: 1px solid #45475a;
+    border-radius: 4px;
+    background-color: #1e1e2e;
+}
+
+QTabBar::tab {
+    background-color: #313244;
+    padding: 8px 16px;
+    margin-right: 2px;
+    border-top-left-radius: 4px;
+    border-top-right-radius: 4px;
+}
+
+QTabBar::tab:selected {
+    background-color: #45475a;
+}
+
+QTabBar::tab:hover {
+    background-color: #585b70;
+}
+
+/* Скроллбары */
+QScrollBar:vertical {
+    background-color: #1e1e2e;
+    width: 12px;
+    border: none;
+    border-radius: 6px;
+}
+
+QScrollBar::handle:vertical {
+    background-color: #45475a;
+    border-radius: 6px;
+    min-height: 20px;
+}
+
+QScrollBar::handle:vertical:hover {
+    background-color: #585b70;
+}
+
+QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
+    height: 0px;
+}
+
+QScrollBar:horizontal {
+    background-color: #1e1e2e;
+    height: 12px;
+    border: none;
+    border-radius: 6px;
+}
+
+QScrollBar::handle:horizontal {
+    background-color: #45475a;
+    border-radius: 6px;
+    min-width: 20px;
+}
+
+QScrollBar::handle:horizontal:hover {
+    background-color: #585b70;
+}
+
+QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal {
+    width: 0px;
+}
+
+/* Прогресс бар */
+QProgressBar {
+    background-color: #313244;
+    border: none;
+    border-radius: 4px;
+    height: 8px;
+    text-align: center;
+}
+
+QProgressBar::chunk {
+    background-color: #89b4fa;
+    border-radius: 4px;
+}
+
+/* Группы */
+QGroupBox {
+    border: 1px solid #45475a;
+    border-radius: 4px;
+    margin-top: 8px;
+    padding-top: 8px;
+}
+
+QGroupBox::title {
+    subcontrol-origin: margin;
+    left: 8px;
+    padding: 0 4px;
+}
+
+/* Датчики на схеме */
+.sensor-indicator {
+    border: 2px solid #1e1e2e;
+    border-radius: 50%;
+}
+
+.sensor-indicator.active {
+    background-color: #a6e3a1;
+}
+
+.sensor-indicator.error {
+    background-color: #f38ba8;
+}
+
+.sensor-indicator.warning {
+    background-color: #f9e2af;
+}
+
+/* Объекты на карте */
+.object-rect {
+    fill-opacity: 0.8;
+    stroke: #cdd6f4;
+    stroke-width: 2;
+    border-radius: 4px;
+}
+
+.object-rect:hover {
+    fill-opacity: 1;
+    stroke-width: 3;
+}
+
+.object-rect.selected {
+    stroke: #89b4fa;
+    stroke-width: 3;
+}
+
+/* Всплывающие подсказки */
+QToolTip {
+    background-color: #313244;
+    color: #cdd6f4;
+    border: 1px solid #45475a;
+    border-radius: 4px;
+    padding: 4px 8px;
+}
