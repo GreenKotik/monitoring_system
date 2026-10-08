@@ -1,21 +1,21 @@
-#pragma once
+#ifndef DBMANAGER_H
+#define DBMANAGER_H
 
-#pragma once
-
-#include <QObject>
 #include <QSqlDatabase>
 #include <QSqlQuery>
 #include <QSqlError>
-#include <QDebug>
-#include <QVariant>
-#include <QDateTime>
-#include <QJsonObject>
-#include "models/object.h"
-#include "models/sensor.h"
-#include "models/sensorreading.h"
-#include "models/user.h"
-#include <QMap>
+#include <QList>
+#include <QString>
+#include "../core_global.h"
+#include "../models/object.h"
+#include "../models/objecttype.h"      // <-- ДОБАВИТЬ ЭТУ СТРОКУ
+#include "../models/sensor.h"
+#include "../models/sensortype.h"      // <-- ДОБАВИТЬ ЭТУ СТРОКУ
+#include "../models/sensorreading.h"
 
+// ============================================================================
+// СТРУКТУРЫ ДЛЯ ДИНАМИЧЕСКОЙ КОНФИГУРАЦИИ
+// ============================================================================
 struct SensorConfig {
     QString sensorId;
     QString name;
@@ -28,10 +28,6 @@ struct SensorConfig {
     int modbusRegister;
     int pollIntervalMs;
     bool enabled;
-    QString command;         // Для TCP
-    QString terminator;      // Для TCP (CR, LF, CRLF)
-    QString regex;           // Для TCP (регулярное выражение)
-    QString checksumType;    // Для TCP (None, XOR, CRC16)
 };
 
 struct DeviceConfig {
@@ -43,61 +39,69 @@ struct DeviceConfig {
     int timeoutMs;
     QList<SensorConfig> sensors;
 };
+// ============================================================================
 
-class DbManager : public QObject
+class CORE_EXPORT DbManager
 {
-    Q_OBJECT
-
-private:
-    explicit DbManager(QObject *parent = nullptr);
-    ~DbManager();
-
 public:
     static DbManager& instance();
-    bool initialize(const QString &driver = "QSQLITE",
-                    const QString &database = "monitoring.db",
-                    const QString &host = "",
-                    int port = 0,
-                    const QString &user = "",
-                    const QString &password = "");
+
+    // Оригинальный метод подключения
+    bool connect(const QString &host, int port, const QString &database,
+                 const QString &user, const QString &password);
     void disconnect();
-    bool isOpen() const;
-    QString lastError() const;
 
-    // CRUD для Object - УБИРАЕМ const
-    bool createObject(const Object &object);
+    // Эти методы реализованы прямо здесь (inline), поэтому ошибок линковки не будет
+    bool isConnected() const { return m_db.isOpen(); }
+    QString lastError() const { return m_lastError; }
+
+    // CRUD для объектов
     QList<Object> getObjects(const QString &parentId = QString());
-    Object getObjectById(const QString &id);
+    QList<Object> getRootObjects();
+    Object getObject(const QString &objectId);
+    bool createObject(const Object &object);
     bool updateObject(const Object &object);
-    bool deleteObject(const QString &id);
+    bool deleteObject(const QString &objectId);
 
-    // CRUD для Sensor - УБИРАЕМ const
-    bool createSensor(const Sensor &sensor);
+    // CRUD для датчиков
     QList<Sensor> getSensors(const QString &objectId = QString());
-    Sensor getSensorById(const QString &id);
+    Sensor getSensor(const QString &sensorId);
+    bool createSensor(const Sensor &sensor);
     bool updateSensor(const Sensor &sensor);
-    bool deleteSensor(const QString &id);
+    bool deleteSensor(const QString &sensorId);
 
-    // Чтения - УБИРАЕМ const
-    bool addReading(const QString &sensorId, double value);
+    // Показания датчиков
+    bool addReading(const QString &sensorId, qreal value);
     QList<SensorReading> getHistory(const QString &sensorId, int count = 100);
-    QList<SensorReading> getHistory(const QString &sensorId,
-                                    const QDateTime &from,
-                                    const QDateTime &to);
+    QList<SensorReading> getHistory(const QString &sensorId, const QDateTime &from, const QDateTime &to);
 
-    // Методы для загрузки конфигурации
-    QList<DeviceConfig> getActiveDeviceConfigs();
-    QList<SensorConfig> getActiveSensors();
+    // Типы
+    QList<ObjectType> getObjectTypes();
+    QList<SensorType> getSensorTypes();
+
+    // Транзакции
+    bool beginTransaction();
+    bool commitTransaction();
+    bool rollbackTransaction();
+
     // Миграции
     bool runMigrations();
 
+    // --- НОВЫЕ МЕТОДЫ ДЛЯ ЧТЕНИЯ КОНФИГУРАЦИИ ---
+    QList<SensorConfig> getActiveSensors();
+    QList<DeviceConfig> getActiveDeviceConfigs();
+    // ---------------------------------------------
+
 private:
-    QSqlQuery executeQuery(const QString &query, const QVariantList &params = QVariantList());
-    Object parseObject(const QSqlQuery &query) const;
-    Sensor parseSensor(const QSqlQuery &query) const;
-    SensorReading parseReading(const QSqlQuery &query) const;
+    DbManager() = default; // <-- ВАЖНО: без QObject*, без параметров
+    ~DbManager();
+    DbManager(const DbManager&) = delete;
+    DbManager& operator=(const DbManager&) = delete;
+
+    QSqlQuery executeQuery(const QString &query, const QVariantList &params = {});
 
     QSqlDatabase m_db;
     QString m_lastError;
-    bool m_initialized;
 };
+
+#endif // DBMANAGER_H

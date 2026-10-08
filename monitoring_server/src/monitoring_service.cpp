@@ -28,8 +28,8 @@ bool MonitoringService::initialize()
 {
     qInfo() << "Initializing Monitoring Service...";
 
-if (!DbManager::instance().isOpen()) {
-    qCritical() << "Database is not connected!";
+    if (!DbManager::instance().isConnected()) {
+        qCritical() << "Database is not connected!";
         return false;
     }
 
@@ -54,8 +54,8 @@ void MonitoringService::start()
         m_snmpCollector->start(5000);
     }
 
-if (m_modbusCollector->devices().size() > 0) {
-    qInfo() << "Starting Modbus Collector...";
+    if (m_modbusCollector->devices().size() > 0) {
+        qInfo() << "Starting Modbus Collector...";
         m_modbusCollector->start(5000);
     }
 
@@ -64,8 +64,8 @@ if (m_modbusCollector->devices().size() > 0) {
         m_tcpCollector->start(5000);
     }
 
-    // Запускаем таймер обновления конфигурации (каждые 30 секунд)
-    m_configRefreshTimer->start(30000);
+    // Запускаем таймер обновления конфигурации (каждые 10/30 секунд)
+    m_configRefreshTimer->start(10000);
 
     m_isRunning = true;
     qInfo() << "Monitoring Service started successfully";

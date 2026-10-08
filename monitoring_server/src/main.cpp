@@ -27,7 +27,6 @@ int main(int argc, char *argv[])
     app.setQuitOnLastWindowClosed(false);
 
     QTextStream out(stdout);
-
     out << "========================================" << Qt::endl;
     out << "   Monitoring Server v1.0.0" << Qt::endl;
     out << "========================================" << Qt::endl;
@@ -66,11 +65,8 @@ int main(int argc, char *argv[])
     out << "   User: " << dbUser << Qt::endl;
     out.flush();
 
-    bool dbConnected = DbManager::instance().initialize(
-        "QPSQL", dbName, dbHost, dbPort, dbUser, dbPassword
-    );
-
-    if (!dbConnected) {
+    // ✅ ИСПРАВЛЕНО: используем connect() с 5 параметрами (как в оригинальном репозитории)
+    if (!DbManager::instance().connect(dbHost, dbPort, dbName, dbUser, dbPassword)) {
         out << "   [ERROR] " << DbManager::instance().lastError() << Qt::endl;
         out.flush();
         Logger::instance().error("Database connection failed: " + DbManager::instance().lastError());
@@ -147,155 +143,3 @@ int main(int argc, char *argv[])
 
     return app.exec();
 }
-
-
-
-/*
-#include <QCoreApplication>
-#include <QDebug>
-#include <QTextStream>
-#include "monitoring_service.h"
-#include "database/dbmanager.h"
-#include "utils/config.h"
-
-int main(int argc, char *argv[])
-{
-    QCoreApplication a(argc, argv);
-    QTextStream out(stdout);
-
-    out << "========================================" << Qt::endl;
-    out << "   Monitoring Server v1.0.0" << Qt::endl;
-    out << "========================================" << Qt::endl;
-    out.flush();
-
-    out << "1. Loading config..." << Qt::endl;
-    out.flush();
-
-    if (!Config::instance().load("config.json")) {
-        qCritical() << "Failed to load config.json";
-        out << "   ❌ Failed to load config.json" << Qt::endl;
-        out.flush();
-        return 1;
-    }
-    out << "   ✅ Config loaded" << Qt::endl;
-    out.flush();
-
-    // Читаем параметры БД из конфига
-    QString dbHost = Config::instance().get("database.host", "localhost").toString();
-    int dbPort = Config::instance().get("database.port", 5432).toInt();
-    QString dbName = Config::instance().get("database.name", "sensor_db").toString();  // <-- sensor_db по умолчанию
-    QString dbUser = Config::instance().get("database.user", "postgres").toString();
-    QString dbPassword = Config::instance().get("database.password", "12345").toString();
-
-    out << "2. Connecting to PostgreSQL database..." << Qt::endl;
-    out.flush();
-    out << "   Host: " << dbHost << Qt::endl;
-    out << "   Port: " << dbPort << Qt::endl;
-    out << "   Database: " << dbName << Qt::endl;
-    out << "   User: " << dbUser << Qt::endl;
-    out.flush();
-
-    bool dbConnected = DBManager::instance().initialize(
-        "QPSQL",
-        dbName,
-        dbHost,
-        dbPort,
-        dbUser,
-        dbPassword
-    );
-
-    if (!dbConnected) {
-        out << "   ❌ ERROR: " << DBManager::instance().lastError() << Qt::endl;
-        out.flush();
-        return 1;
-    }
-
-    out << "   ✅ PostgreSQL connected successfully" << Qt::endl;
-    out.flush();
-
-    out << "3. Creating and starting MonitoringService..." << Qt::endl;
-    out.flush();
-
-    MonitoringService service;
-
-    if (!service.initialize()) {
-        qCritical() << "Failed to initialize monitoring service";
-        out << "   ❌ Failed to initialize monitoring service" << Qt::endl;
-        out.flush();
-        return 1;
-    }
-
-    service.start();
-
-    out << "   ✅ MonitoringService started" << Qt::endl;
-    out.flush();
-
-    out << "========================================" << Qt::endl;
-    out << "   Monitoring Server is running" << Qt::endl;
-    out << "   Press Ctrl+C to stop" << Qt::endl;
-    out << "========================================" << Qt::endl;
-    out.flush();
-
-    return a.exec();
-}
-*/
-/*
-#include <QCoreApplication>
-#include <QTimer>
-#include <QDebug>
-#include "collectors/snmpcollector.h"
-#include "core/database/dbmanager.h"
-#include "core/utils/logger.h"
-
-int main(int argc, char *argv[])
-{
-    QCoreApplication app(argc, argv);
-
-    Logger::instance().init("monitoring_server.log");
-    Logger::instance().info("Monitoring Server started");
-
-    // Подключение к БД
-    if (!DbManager::instance().connect("localhost", 5432, "monitoring", "postgres", "password")) {
-        Logger::instance().error("Failed to connect to database");
-        return 1;
-    }
-
-    // Создаем SNMP коллектор
-    SnmpCollector snmpCollector;
-
-    // Подключаем сигнал к слоту для записи в БД
-    QObject::connect(&snmpCollector, &SnmpCollector::dataReceived,
-        [](const QString &sensorId, qreal value) {
-            Logger::instance().info(QString("Data received: %1 = %2").arg(sensorId).arg(value));
-            DbManager::instance().addReading(sensorId, value);
-        });
-
-    // Подключаем обработку ошибок
-    QObject::connect(&snmpCollector, &SnmpCollector::errorOccurred,
-        [](const QString &deviceId, const QString &error) {
-            Logger::instance().error(QString("SNMP error on %1: %2").arg(deviceId).arg(error));
-        });
-
-    // Настраиваем устройство
-    SnmpCollector::SnmpDevice device;
-    device.deviceId = "router_1";
-    device.host = "192.168.1.1";
-    device.port = 161;
-    device.community = "public";
-    device.timeoutMs = 2000;
-
-    // Добавляем OID для опроса
-    device.oids["cpu_usage"] = "1.3.6.1.4.1.9.9.109.1.1.1.1.5.1";
-    device.oids["memory_usage"] = "1.3.6.1.4.1.9.9.48.1.1.1.5.1";
-    device.oids["temperature"] = "1.3.6.1.4.1.9.9.13.1.3.1.3.1";
-
-    snmpCollector.addDevice(device);
-
-    // Запускаем опрос каждые 5 секунд
-    snmpCollector.start(5000);
-
-    Logger::instance().info("Monitoring Server running...");
-
-    return app.exec();
-}
-*/
