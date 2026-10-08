@@ -4,7 +4,7 @@
 #include "httprequest.h"
 #include "httpresponse.h"
 
-class ObjectController : public QObject
+class SensorController : public QObject
 {
     Q_OBJECT
 
@@ -14,5 +14,5 @@ public:
     static void create(const HttpRequest &request, HttpResponse &response);
     static void update(const HttpRequest &request, HttpResponse &response);
     static void remove(const HttpRequest &request, HttpResponse &response);
-    static void getTree(const HttpRequest &request, HttpResponse &response);
+    static void getHistory(const HttpRequest &request, HttpResponse &response);
 };

@@ -3,34 +3,33 @@
 
 HttpServer::HttpServer(QObject *parent)
     : QTcpServer(parent)
+    , m_router(nullptr)
 {
-    qDebug() << "HttpServer initialized";
 }
 
-HttpServer::~HttpServer()
-{
+HttpServer::~HttpServer() {
     stop();
 }
 
-bool HttpServer::start(quint16 port)
-{
-    if (listen(QHostAddress::Any, port)) {
-        qDebug() << "HttpServer started on port" << port;
-        return true;
-    } else {
-        qDebug() << "Failed to start HttpServer on port" << port << errorString();
+bool HttpServer::start(int port) {
+    if (!listen(QHostAddress::Any, port)) {
+        qCritical() << "Failed to start HTTP server on port" << port << ":" << errorString();
         return false;
     }
+    qDebug() << "HTTP Server started on port" << port;
+    return true;
 }
 
-void HttpServer::stop()
-{
+void HttpServer::stop() {
     close();
-    qDebug() << "HttpServer stopped";
+    qDebug() << "HTTP Server stopped";
 }
 
-void HttpServer::incomingConnection(qintptr socketDescriptor)
-{
+void HttpServer::setRouter(HttpRouter *router) {
+    m_router = router;
+}
+
+void HttpServer::incomingConnection(qintptr socketDescriptor) {
     QTcpSocket *socket = new QTcpSocket(this);
     socket->setSocketDescriptor(socketDescriptor);
 
@@ -38,49 +37,47 @@ void HttpServer::incomingConnection(qintptr socketDescriptor)
     connect(socket, &QTcpSocket::disconnected, this, &HttpServer::onDisconnected);
 
     m_buffers[socket] = QByteArray();
-
-    qDebug() << "New connection from" << socket->peerAddress().toString() << ":" << socket->peerPort();
 }
 
-void HttpServer::onReadyRead()
-{
+void HttpServer::onReadyRead() {
     QTcpSocket *socket = qobject_cast<QTcpSocket*>(sender());
     if (!socket) return;
 
-    QByteArray data = socket->readAll();
-    m_buffers[socket].append(data);
+    m_buffers[socket].append(socket->readAll());
 
-    // Проверяем, полный ли запрос получен
-    if (m_buffers[socket].contains("\r\n\r\n")) {
-        processRequest(socket, m_buffers[socket]);
-        m_buffers[socket].clear();
+    QByteArray &buffer = m_buffers[socket];
+    if (buffer.contains("\r\n\r\n") || buffer.contains("\n\n")) {
+        processRequest(socket, buffer);
+        buffer.clear();
     }
 }
 
-void HttpServer::onDisconnected()
-{
+void HttpServer::onDisconnected() {
     QTcpSocket *socket = qobject_cast<QTcpSocket*>(sender());
     if (!socket) return;
 
     m_buffers.remove(socket);
     socket->deleteLater();
-    qDebug() << "Connection closed";
 }
 
-void HttpServer::processRequest(QTcpSocket *socket, const QByteArray &data)
-{
+void HttpServer::processRequest(QTcpSocket *socket, const QByteArray &data) {
     HttpRequest request;
+    HttpResponse response;
+
     if (!request.parse(data)) {
-        HttpResponse response;
-        response.setStatus(HttpResponse::BAD_REQUEST);
-        response.setBody("Bad Request");
+        response.setStatus(400, "Bad Request");
+        response.setBody(QByteArray("{\"error\":\"Invalid HTTP request\"}"));
         socket->write(response.toByteArray());
         socket->flush();
         return;
     }
 
-    HttpResponse response;
-    m_router.route(request, response);
+    if (m_router) {
+        m_router->route(request, response);
+    } else {
+        response.setStatus(404, "Not Found");
+        response.setBody(QByteArray("{\"error\":\"No router configured\"}"));
+    }
 
     socket->write(response.toByteArray());
     socket->flush();

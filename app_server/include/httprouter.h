@@ -1,5 +1,4 @@
-#ifndef HTTPROUTER_H
-#define HTTPROUTER_H
+#pragma once
 
 #include <QObject>
 #include <QMap>
@@ -13,19 +12,13 @@ class HttpRouter : public QObject
     Q_OBJECT
 
 public:
-    using Handler = std::function<void(const HttpRequest &, HttpResponse &)>;
+    using Handler = std::function<void(const HttpRequest&, HttpResponse&)>;
 
-    HttpRouter(QObject *parent = nullptr);
+    explicit HttpRouter(QObject *parent = nullptr);
+    ~HttpRouter();
 
     void addRoute(const QString &method, const QString &path, Handler handler);
-    void addGet(const QString &path, Handler handler);
-    void addPost(const QString &path, Handler handler);
-    void addPut(const QString &path, Handler handler);
-    void addDelete(const QString &path, Handler handler);
-
     bool route(const HttpRequest &request, HttpResponse &response);
-
-    void setNotFoundHandler(Handler handler);
 
 private:
     struct Route {
@@ -35,9 +28,4 @@ private:
     };
 
     QList<Route> m_routes;
-    Handler m_notFoundHandler;
-
-    bool matchRoute(const QString &routePath, const QString &requestPath, QMap<QString, QString> &params);
 };
-
-#endif // HTTPROUTER_H

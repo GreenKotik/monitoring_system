@@ -1,13 +1,11 @@
-#ifndef HTTPSERVER_H
-#define HTTPSERVER_H
+#pragma once
 
+#include <QObject>
 #include <QTcpServer>
 #include <QTcpSocket>
-#include <QMap>
-#include <QThreadPool>
-#include "httprouter.h"
 #include "httprequest.h"
 #include "httpresponse.h"
+#include "httprouter.h"
 
 class HttpServer : public QTcpServer
 {
@@ -17,10 +15,10 @@ public:
     explicit HttpServer(QObject *parent = nullptr);
     ~HttpServer();
 
-    bool start(quint16 port);
+    bool start(int port);
     void stop();
 
-    HttpRouter* router() { return &m_router; }
+    void setRouter(HttpRouter *router);
 
 protected:
     void incomingConnection(qintptr socketDescriptor) override;
@@ -32,8 +30,6 @@ private slots:
 private:
     void processRequest(QTcpSocket *socket, const QByteArray &data);
 
-    HttpRouter m_router;
+    HttpRouter *m_router;
     QMap<QTcpSocket*, QByteArray> m_buffers;
 };
-
-#endif // HTTPSERVER_H

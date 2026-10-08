@@ -1,164 +1,152 @@
 #include "controllers/objectcontroller.h"
+#include "database/dbmanager.h"
+#include "models/object.h"
 #include <QJsonDocument>
-#include <QJsonParseError>
+#include <QJsonArray>
+#include <QJsonObject>
+#include <QUuid>
 
-void ObjectController::list(const HttpRequest &req, HttpResponse &res)
-{
-    bool rootOnly = req.queryParam("root") == "true";
+void ObjectController::list(const HttpRequest &request, HttpResponse &response) {
     QList<Object> objects;
 
-    if (rootOnly) {
-        objects = DbManager::instance().getRootObjects();
+    QString parentId = request.getParam("parentId");
+    if (!parentId.isEmpty()) {
+        objects = DbManager::instance().getObjects(parentId);
     } else {
         objects = DbManager::instance().getObjects();
     }
 
-    QJsonArray array;
+    QJsonArray jsonArray;
     for (const Object &obj : objects) {
-        array.append(obj.toJson());
+        jsonArray.append(obj.toJson());
     }
 
-    QJsonObject response;
-    response["status"] = "success";
-    response["data"] = array;
+    QJsonObject json;
+    json["status"] = "success";
+    json["objects"] = jsonArray;
 
-    res.setJson(QJsonDocument(response).toJson());
+    response.setStatus(200, "OK");
+    response.setBody(QJsonDocument(json).toJson());
 }
 
-void ObjectController::get(const HttpRequest &req, HttpResponse &res)
-{
-    QString objectId = req.pathParam("id");
+void ObjectController::get(const HttpRequest &request, HttpResponse &response) {
+    QString objectId = request.getParam("id");
     if (objectId.isEmpty()) {
-        res.setStatus(HttpResponse::BAD_REQUEST);
-        res.setJson(R"({"error": "Object ID is required"})");
+        response.setStatus(400, "Bad Request");
+        response.setBody("{\"error\":\"Object ID required\"}");
         return;
     }
 
-    Object object = DbManager::instance().getObject(objectId);
-    if (object.objectId().isEmpty()) {
-        res.setStatus(HttpResponse::NOT_FOUND);
-        res.setJson(R"({"error": "Object not found"})");
+    Object object = DbManager::instance().getObjectById(objectId);
+    if (!object.isValid()) {
+        response.setStatus(404, "Not Found");
+        response.setBody("{\"error\":\"Object not found\"}");
         return;
     }
 
-    QJsonObject response;
-    response["status"] = "success";
-    response["data"] = object.toJson();
+    QJsonObject json;
+    json["status"] = "success";
+    json["object"] = object.toJson();
 
-    res.setJson(QJsonDocument(response).toJson());
+    response.setStatus(200, "OK");
+    response.setBody(QJsonDocument(json).toJson());
 }
 
-void ObjectController::create(const HttpRequest &req, HttpResponse &res)
-{
-    QJsonParseError error;
-    QJsonDocument doc = QJsonDocument::fromJson(req.body(), &error);
-
-    if (error.error != QJsonParseError::NoError) {
-        res.setStatus(HttpResponse::BAD_REQUEST);
-        res.setJson(R"({"error": "Invalid JSON"})");
+void ObjectController::create(const HttpRequest &request, HttpResponse &response) {
+    QJsonDocument doc = QJsonDocument::fromJson(request.body());
+    if (!doc.isObject()) {
+        response.setStatus(400, "Bad Request");
+        response.setBody("{\"error\":\"Invalid JSON\"}");
         return;
     }
 
-    Object object(doc.object());
-    if (object.objectId().isEmpty()) {
-        res.setStatus(HttpResponse::BAD_REQUEST);
-        res.setJson(R"({"error": "Object ID is required"})");
-        return;
+    Object object;
+    object.fromJson(doc.object());
+
+    if (object.id().isEmpty()) {
+        object.setId(QUuid::createUuid().toString(QUuid::WithoutBraces));
     }
 
     if (DbManager::instance().createObject(object)) {
-        QJsonObject response;
-        response["status"] = "success";
-        response["data"] = object.toJson();
-        res.setStatus(HttpResponse::CREATED);
-        res.setJson(QJsonDocument(response).toJson());
+        QJsonObject json;
+        json["status"] = "success";
+        json["message"] = "Object created";
+        json["object"] = object.toJson();
+
+        response.setStatus(201, "Created");
+        response.setBody(QJsonDocument(json).toJson());
     } else {
-        res.setStatus(HttpResponse::INTERNAL_SERVER_ERROR);
-        res.setJson(R"({"error": "Failed to create object"})");
+        response.setStatus(500, "Internal Server Error");
+        response.setBody("{\"error\":\"Failed to create object\"}");
     }
 }
 
-void ObjectController::update(const HttpRequest &req, HttpResponse &res)
-{
-    QString objectId = req.pathParam("id");
+void ObjectController::update(const HttpRequest &request, HttpResponse &response) {
+    QString objectId = request.getParam("id");
     if (objectId.isEmpty()) {
-        res.setStatus(HttpResponse::BAD_REQUEST);
-        res.setJson(R"({"error": "Object ID is required"})");
+        response.setStatus(400, "Bad Request");
+        response.setBody("{\"error\":\"Object ID required\"}");
         return;
     }
 
-    QJsonParseError error;
-    QJsonDocument doc = QJsonDocument::fromJson(req.body(), &error);
-
-    if (error.error != QJsonParseError::NoError) {
-        res.setStatus(HttpResponse::BAD_REQUEST);
-        res.setJson(R"({"error": "Invalid JSON"})");
+    QJsonDocument doc = QJsonDocument::fromJson(request.body());
+    if (!doc.isObject()) {
+        response.setStatus(400, "Bad Request");
+        response.setBody("{\"error\":\"Invalid JSON\"}");
         return;
     }
 
-    Object object(doc.object());
-    object.setObjectId(objectId);
+    Object object;
+    object.fromJson(doc.object());
+    object.setId(objectId);
 
     if (DbManager::instance().updateObject(object)) {
-        QJsonObject response;
-        response["status"] = "success";
-        response["data"] = object.toJson();
-        res.setJson(QJsonDocument(response).toJson());
+        QJsonObject json;
+        json["status"] = "success";
+        json["message"] = "Object updated";
+        json["object"] = object.toJson();
+
+        response.setStatus(200, "OK");
+        response.setBody(QJsonDocument(json).toJson());
     } else {
-        res.setStatus(HttpResponse::INTERNAL_SERVER_ERROR);
-        res.setJson(R"({"error": "Failed to update object"})");
+        response.setStatus(500, "Internal Server Error");
+        response.setBody("{\"error\":\"Failed to update object\"}");
     }
 }
 
-void ObjectController::remove(const HttpRequest &req, HttpResponse &res)
-{
-    QString objectId = req.pathParam("id");
+void ObjectController::remove(const HttpRequest &request, HttpResponse &response) {
+    QString objectId = request.getParam("id");
     if (objectId.isEmpty()) {
-        res.setStatus(HttpResponse::BAD_REQUEST);
-        res.setJson(R"({"error": "Object ID is required"})");
+        response.setStatus(400, "Bad Request");
+        response.setBody("{\"error\":\"Object ID required\"}");
         return;
     }
 
     if (DbManager::instance().deleteObject(objectId)) {
-        QJsonObject response;
-        response["status"] = "success";
-        response["message"] = "Object deleted";
-        res.setJson(QJsonDocument(response).toJson());
+        QJsonObject json;
+        json["status"] = "success";
+        json["message"] = "Object deleted";
+
+        response.setStatus(200, "OK");
+        response.setBody(QJsonDocument(json).toJson());
     } else {
-        res.setStatus(HttpResponse::INTERNAL_SERVER_ERROR);
-        res.setJson(R"({"error": "Failed to delete object"})");
+        response.setStatus(500, "Internal Server Error");
+        response.setBody("{\"error\":\"Failed to delete object\"}");
     }
 }
 
-void ObjectController::getTree(const HttpRequest &req, HttpResponse &res)
-{
+void ObjectController::getTree(const HttpRequest &request, HttpResponse &response) {
     QList<Object> objects = DbManager::instance().getObjects();
-    QList<Object> tree = Object::buildTree(objects);
 
-    QJsonArray array;
-    for (const Object &obj : tree) {
-        array.append(obj.toJson());
+    QJsonArray jsonArray;
+    for (const Object &obj : objects) {
+        jsonArray.append(obj.toJson());
     }
 
-    QJsonObject response;
-    response["status"] = "success";
-    response["data"] = array;
+    QJsonObject json;
+    json["status"] = "success";
+    json["objects"] = jsonArray;
 
-    res.setJson(QJsonDocument(response).toJson());
-}
-
-void ObjectController::types(const HttpRequest &req, HttpResponse &res)
-{
-    QList<ObjectType> types = DbManager::instance().getObjectTypes();
-
-    QJsonArray array;
-    for (const ObjectType &type : types) {
-        array.append(type.toJson());
-    }
-
-    QJsonObject response;
-    response["status"] = "success";
-    response["data"] = array;
-
-    res.setJson(QJsonDocument(response).toJson());
+    response.setStatus(200, "OK");
+    response.setBody(QJsonDocument(json).toJson());
 }
