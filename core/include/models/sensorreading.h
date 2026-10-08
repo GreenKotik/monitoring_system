@@ -1,37 +1,38 @@
-#ifndef SENSORREADING_H
-#define SENSORREADING_H
+#pragma once
 
 #include <QString>
-#include <QDateTime>
 #include <QJsonObject>
-#include "../core_global.h"
+#include <QDateTime>
 
-class CORE_EXPORT SensorReading
+class SensorReading
 {
 public:
     SensorReading();
-    explicit SensorReading(const QJsonObject &json);
+    ~SensorReading();
 
-    qint64 readingId() const { return m_readingId; }
-    void setReadingId(qint64 id) { m_readingId = id; }
-
+    // Геттеры
+    QString id() const { return m_id; }
     QString sensorId() const { return m_sensorId; }
-    void setSensorId(const QString &id) { m_sensorId = id; }
-
-    qreal value() const { return m_value; }
-    void setValue(qreal value) { m_value = value; }
-
+    double value() const { return m_value; }
+    QString quality() const { return m_quality; }
     QDateTime timestamp() const { return m_timestamp; }
-    void setTimestamp(const QDateTime &dt) { m_timestamp = dt; }
+    bool isValid() const { return !m_id.isEmpty(); }
 
+    // Сеттеры
+    void setId(const QString &id) { m_id = id; }
+    void setSensorId(const QString &sensorId) { m_sensorId = sensorId; }
+    void setValue(double value) { m_value = value; }
+    void setQuality(const QString &quality) { m_quality = quality; }
+    void setTimestamp(const QDateTime &timestamp) { m_timestamp = timestamp; }
+
+    // JSON сериализация
     QJsonObject toJson() const;
     void fromJson(const QJsonObject &json);
 
 private:
-    qint64 m_readingId = 0;
+    QString m_id;
     QString m_sensorId;
-    qreal m_value = 0.0;
-    QDateTime m_timestamp = QDateTime::currentDateTime();
+    double m_value = 0.0;
+    QString m_quality = "normal";
+    QDateTime m_timestamp;
 };
-
-#endif // SENSORREADING_H

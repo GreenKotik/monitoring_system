@@ -1,82 +1,76 @@
-#ifndef SENSOR_H
-#define SENSOR_H
+#pragma once
 
 #include <QString>
-#include <QDateTime>
 #include <QJsonObject>
 #include <QJsonArray>
-#include <QList>
-#include "../core_global.h"
-#include "sensortype.h"
-#include "sensorreading.h"
+#include <QDateTime>
 
-class CORE_EXPORT Sensor
+class Sensor
 {
 public:
     Sensor();
-    explicit Sensor(const QJsonObject &json);
+    ~Sensor();
 
-    // Геттеры и сеттеры
-    QString sensorId() const { return m_sensorId; }
-    void setSensorId(const QString &id) { m_sensorId = id; }
-
-    int typeId() const { return m_typeId; }
-    void setTypeId(int id) { m_typeId = id; }
-
-    QString objectId() const { return m_objectId; }
-    void setObjectId(const QString &id) { m_objectId = id; }
-
+    // Геттеры
+    QString id() const { return m_id; }
     QString name() const { return m_name; }
-    void setName(const QString &name) { m_name = name; }
-
-    QString description() const { return m_description; }
-    void setDescription(const QString &desc) { m_description = desc; }
-
-    qreal positionX() const { return m_positionX; }
-    void setPositionX(qreal x) { m_positionX = x; }
-
-    qreal positionY() const { return m_positionY; }
-    void setPositionY(qreal y) { m_positionY = y; }
-
+    QString typeId() const { return m_typeId; }
+    QString typeName() const { return m_typeName; }
+    QString objectId() const { return m_objectId; }
+    QString objectName() const { return m_objectName; }
+    QString unit() const { return m_unit; }
+    double minValue() const { return m_minValue; }
+    double maxValue() const { return m_maxValue; }
+    double lastValue() const { return m_lastValue; }
     QString status() const { return m_status; }
-    void setStatus(const QString &status) { m_status = status; }
-
-    qreal lastValue() const { return m_lastValue; }
-    void setLastValue(qreal value) { m_lastValue = value; }
-
+    int pollingInterval() const { return m_pollingInterval; }
+    QString connectionParams() const { return m_connectionParams; }
     QDateTime lastUpdate() const { return m_lastUpdate; }
+    QDateTime createdAt() const { return m_createdAt; }
+    bool isActive() const { return m_isActive; }
+    bool isValid() const { return !m_id.isEmpty(); }
+
+    // Сеттеры
+    void setId(const QString &id) { m_id = id; }
+    void setName(const QString &name) { m_name = name; }
+    void setTypeId(const QString &typeId) { m_typeId = typeId; }
+    void setTypeName(const QString &typeName) { m_typeName = typeName; }
+    void setObjectId(const QString &objectId) { m_objectId = objectId; }
+    void setObjectName(const QString &objectName) { m_objectName = objectName; }
+    void setUnit(const QString &unit) { m_unit = unit; }
+    void setMinValue(double min) { m_minValue = min; }
+    void setMaxValue(double max) { m_maxValue = max; }
+    void setLastValue(double value) { m_lastValue = value; }
+    void setStatus(const QString &status) { m_status = status; }
+    void setPollingInterval(int interval) { m_pollingInterval = interval; }
+    void setConnectionParams(const QString &params) { m_connectionParams = params; }
     void setLastUpdate(const QDateTime &dt) { m_lastUpdate = dt; }
+    void setCreatedAt(const QDateTime &dt) { m_createdAt = dt; }
+    void setIsActive(bool active) { m_isActive = active; }
 
-    QDateTime installDate() const { return m_installDate; }
-    void setInstallDate(const QDateTime &dt) { m_installDate = dt; }
-
-    SensorType sensorType() const { return m_sensorType; }
-    void setSensorType(const SensorType &type) { m_sensorType = type; }
-
-    bool hasHistory() const { return !m_history.isEmpty(); }
-    QList<SensorReading> history() const { return m_history; }
-    void setHistory(const QList<SensorReading> &history) { m_history = history; }
-    void addReading(const SensorReading &reading) { m_history.append(reading); }
-
-    // Сериализация
+    // JSON сериализация
     QJsonObject toJson() const;
     void fromJson(const QJsonObject &json);
 
+    // Операторы сравнения
+    bool operator==(const Sensor &other) const;
+    bool operator!=(const Sensor &other) const;
+
 private:
-    QString m_sensorId;
-    int m_typeId = 0;
-    QString m_objectId;
+    QString m_id;
     QString m_name;
-    QString m_description;
-    qreal m_positionX = 50.0;
-    qreal m_positionY = 50.0;
-    QString m_status = "active";
-    qreal m_lastValue = 0.0;
+    QString m_typeId;
+    QString m_typeName;
+    QString m_objectId;
+    QString m_objectName;
+    QString m_unit;
+    double m_minValue = 0.0;
+    double m_maxValue = 100.0;
+    double m_lastValue = 0.0;
+    QString m_status = "normal";
+    int m_pollingInterval = 60;
+    QString m_connectionParams;
     QDateTime m_lastUpdate;
-    QDateTime m_installDate;
-
-    SensorType m_sensorType;
-    QList<SensorReading> m_history;
+    QDateTime m_createdAt;
+    bool m_isActive = true;
 };
-
-#endif // SENSOR_H

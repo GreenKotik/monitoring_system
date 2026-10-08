@@ -1,29 +1,35 @@
-#ifndef DBMIGRATIONS_H
-#define DBMIGRATIONS_H
+#pragma once
 
 #include <QString>
+#include <QSqlQuery>
+#include <QSqlError>
+#include <QDebug>
 #include <QList>
-#include <functional>
-#include "core_global.h"
 
-class CORE_EXPORT DbMigrations
-{
-public:
-    struct Migration {
-        int version;
-        QString name;
-        std::function<bool(QSqlQuery&)> up;
-        std::function<bool(QSqlQuery&)> down;
-    };
-
-    static QList<Migration> getAllMigrations();
-    static bool runMigrations();
-    static bool rollbackTo(int version);
-
-private:
-    static bool createMigrationsTable();
-    static int getCurrentVersion();
-    static bool setVersion(int version);
+struct Migration {
+    int version;
+    QString name;
+    QString upSql;
+    QString downSql;
 };
 
-#endif // DBMIGRATIONS_H
+class DBMigrations
+{
+public:
+    static DBMigrations& instance();
+
+    bool apply();
+    bool rollbackTo(int version);
+    QString currentVersion() const;
+
+private:
+    DBMigrations();
+    ~DBMigrations();
+
+    bool createMigrationsTable();
+    bool executeSql(const QString &sql);
+    bool setVersion(int version);
+    QList<Migration> getAllMigrations() const;
+
+    QString m_currentVersion;
+};
