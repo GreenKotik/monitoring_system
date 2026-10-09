@@ -1,18 +1,16 @@
-#ifndef MAINWINDOW_H
-#define MAINWINDOW_H
+#pragma once
 
 #include <QMainWindow>
 #include <QStackedWidget>
-#include <QSplitter>
-#include <QToolBar>
-#include <QStatusBar>
+#include <QVBoxLayout>
+#include <QHBoxLayout>
 #include "widgets/mapwidget.h"
 #include "widgets/toolbarwidget.h"
-#include "widgets/sensordetailwidget.h"
 #include "widgets/breadcrumbwidget.h"
+#include "widgets/objectdetailwidget.h"
+#include "widgets/sensordetailwidget.h"
 #include "apiclient.h"
 #include "appstate.h"
-#include "core/utils/logger.h"
 
 class MainWindow : public QMainWindow
 {
@@ -22,44 +20,33 @@ public:
     explicit MainWindow(QWidget *parent = nullptr);
     ~MainWindow();
 
-protected:
-    void closeEvent(QCloseEvent *event) override;
-
 private slots:
-    void onLoginSuccess(const QString &token, const QString &username);
-    void onLoginFailed(const QString &error);
     void onObjectSelected(const QString &objectId);
     void onSensorSelected(const QString &sensorId);
     void onBackClicked();
-    void onObjectsLoaded(const QJsonArray &objects);
-    void onSensorsLoaded(const QJsonArray &sensors);
-    void onHistoryLoaded(const QJsonArray &history);
-    void onApiError(const QString &error);
-    void onViewReset();
-    void onZoomIn();
-    void onZoomOut();
+    void onSearchTextChanged(const QString &text);
+    void onRefreshClicked();
+    // ДОБАВЛЕНО: объявление слота
+    void onObjectsLoaded(const QList<Object> &objects);
 
 private:
-    void setupUi();
-    void setupConnections();
-    void loadInitialData();
-    void updateBreadcrumb();
-    void showLoginDialog();
-    void setLevel(int level);
-    void updateToolbar();
+    void setupUI();
+    void loadObjects();
+    void showLevel(int level);
 
-    QSplitter *m_splitter;
-    QStackedWidget *m_stackedWidget;
+    QWidget *m_centralWidget;
+    QVBoxLayout *m_mainLayout;
+
+    BreadcrumbWidget *m_breadcrumb;
+    ToolbarWidget *m_toolbar;
+    QStackedWidget *m_contentStack;
     MapWidget *m_mapWidget;
-    ToolbarWidget *m_toolbarWidget;
+    ObjectDetailWidget *m_objectDetailWidget;
     SensorDetailWidget *m_sensorDetailWidget;
-    BreadcrumbWidget *m_breadcrumbWidget;
 
     ApiClient *m_apiClient;
-    AppState m_appState;
+    AppState *m_appState;
 
     QList<Object> m_objects;
     QList<Sensor> m_sensors;
 };
-
-#endif // MAINWINDOW_H

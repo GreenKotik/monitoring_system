@@ -1,5 +1,4 @@
-#ifndef APICLIENT_H
-#define APICLIENT_H
+#pragma once
 
 #include <QObject>
 #include <QNetworkAccessManager>
@@ -7,7 +6,9 @@
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QJsonArray>
-#include <QMap>
+#include "models/object.h"
+#include "models/sensor.h"
+#include "models/sensorreading.h"
 
 class ApiClient : public QObject
 {
@@ -17,89 +18,51 @@ public:
     explicit ApiClient(QObject *parent = nullptr);
     ~ApiClient();
 
-    void setBaseUrl(const QString &url);
-    void setToken(const QString &token);
-    QString token() const;
+    // Аутентификация
+    bool login(const QString &username, const QString &password);
+    void logout();
     bool isAuthenticated() const;
 
-    // Аутентификация
-    void login(const QString &username, const QString &password);
-    void logout();
-
     // Объекты
-    void getObjects(bool rootOnly = false);
+    void getObjects();
     void getObject(const QString &objectId);
-    void createObject(const QJsonObject &data);
-    void updateObject(const QString &objectId, const QJsonObject &data);
+    void getChildObjects(const QString &parentId);
+    void createObject(const Object &object);
+    void updateObject(const Object &object);
     void deleteObject(const QString &objectId);
-    void getObjectTree();
 
-    // Датчики
+    // Сенсоры
     void getSensors(const QString &objectId = QString());
     void getSensor(const QString &sensorId);
-    void getSensorHistory(const QString &sensorId, int count = 100);
-    void addReading(const QString &sensorId, qreal value);
-    void createSensor(const QJsonObject &data);
-    void updateSensor(const QString &sensorId, const QJsonObject &data);
+    void getSensorHistory(const QString &sensorId, const QString &range = "day");
+    void createSensor(const Sensor &sensor);
+    void updateSensor(const Sensor &sensor);
     void deleteSensor(const QString &sensorId);
 
-    // Типы
-    void getObjectTypes();
-    void getSensorTypes();
-
-    // Карты
-    void getMap(const QString &mapId);
-    void getScheme(const QString &schemeId);
-
 signals:
-    // Общие
-    void errorOccurred(const QString &error);
-    void networkError(const QString &error);
-
-    // Аутентификация
-    void loginSuccess(const QString &token, const QString &username);
+    void loginSuccess(const QString &token);
     void loginFailed(const QString &error);
-    void logoutSuccess();
-
-    // Объекты
-    void objectsReceived(const QJsonArray &objects);
-    void objectReceived(const QJsonObject &object);
-    void objectCreated(const QJsonObject &object);
-    void objectUpdated(const QJsonObject &object);
-    void objectDeleted(const QString &objectId);
-    void objectTreeReceived(const QJsonArray &tree);
-
-    // Датчики
-    void sensorsReceived(const QJsonArray &sensors);
-    void sensorReceived(const QJsonObject &sensor);
-    void sensorHistoryReceived(const QJsonArray &history);
-    void readingAdded(const QJsonObject &reading);
-    void sensorCreated(const QJsonObject &sensor);
-    void sensorUpdated(const QJsonObject &sensor);
-    void sensorDeleted(const QString &sensorId);
-
-    // Типы
-    void objectTypesReceived(const QJsonArray &types);
-    void sensorTypesReceived(const QJsonArray &types);
-
-    // Карты
-    void mapReceived(const QByteArray &data);
-    void schemeReceived(const QByteArray &data);
+    void objectsLoaded(const QList<Object> &objects);
+    void objectLoaded(const Object &object);
+    void childObjectsLoaded(const QList<Object> &children);
+    void sensorsLoaded(const QList<Sensor> &sensors);
+    void sensorLoaded(const Sensor &sensor);
+    void sensorHistoryLoaded(const QList<SensorReading> &readings);
+    void errorOccurred(const QString &error);
 
 private slots:
     void onReplyFinished(QNetworkReply *reply);
 
 private:
-    void sendRequest(const QString &method, const QString &path,
-                     const QJsonObject &data = QJsonObject(),
-                     bool authenticated = true);
-    void handleResponse(QNetworkReply *reply, const QString &requestType);
+    void sendRequest(const QString &method, const QString &endpoint, 
+                    const QJsonObject &data = QJsonObject());
+    QJsonObject parseReply(QNetworkReply *reply);
+    void handleObjectsResponse(const QJsonObject &data);
+    void handleSensorsResponse(const QJsonObject &data);
+    void handleSensorHistoryResponse(const QJsonObject &data);
 
-    QNetworkAccessManager *m_manager;
+    QNetworkAccessManager *m_nam;
     QString m_baseUrl;
     QString m_token;
-    QMap<QNetworkReply*, QString> m_pendingRequests;
-    int m_timeoutMs = 30000;
+    bool m_authenticated;
 };
-
-#endif // APICLIENT_H

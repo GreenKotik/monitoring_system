@@ -77,7 +77,8 @@ int main(int argc, char *argv[])
     out.flush();
 
     // Создаём менеджер системного трея
-    TrayManager trayManager;
+    // ✅ Зелёная иконка с буквой "M" (Monitoring)
+    TrayManager trayManager("Monitoring Server", "M", QColor(76, 175, 80));
 
     if (TrayManager::isAvailable()) {
         trayManager.show();

@@ -37,7 +37,7 @@ void ObjectController::get(const HttpRequest &request, HttpResponse &response) {
         return;
     }
 
-    Object object = DbManager::instance().getObjectById(objectId);
+    Object object = DbManager::instance().getObject(objectId);
     if (!object.isValid()) {
         response.setStatus(404, "Not Found");
         response.setBody("{\"error\":\"Object not found\"}");

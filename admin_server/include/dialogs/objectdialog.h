@@ -5,7 +5,8 @@
 #include <QLineEdit>
 #include <QComboBox>
 #include <QDoubleSpinBox>
-#include "core/models/object.h"
+// Исправленный путь - теперь указываем относительно include папки core
+#include "models/object.h"  // Вместо "core/models/object.h"
 
 class ObjectDialog : public QDialog
 {

@@ -1,305 +1,177 @@
 #include "widgets/mapwidget.h"
+#include <QGraphicsRectItem>
+#include <QGraphicsTextItem>
+#include <QGraphicsEllipseItem>
+#include <QFile>
 #include <QSvgRenderer>
 #include <QPainter>
+#include <QWheelEvent>
+#include <QMouseEvent>
+#include <QScrollBar>
 #include <QDebug>
-#include <QJsonArray>
 
 MapWidget::MapWidget(QWidget *parent)
-    : QSvgWidget(parent)
+    : QGraphicsView(parent)
+    , m_scene(new QGraphicsScene(this))
+    , m_isPanning(false)
+    , m_scale(1.0)
 {
-    setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
+    setScene(m_scene);
     setRenderHint(QPainter::Antialiasing);
-    m_viewBox = QRectF(0, 0, 1920, 1080);
+    setDragMode(QGraphicsView::NoDrag);
+    setTransformationAnchor(QGraphicsView::AnchorUnderMouse);
+    setResizeAnchor(QGraphicsView::AnchorUnderMouse);
+
+    loadMap();
 }
 
-MapWidget::~MapWidget()
-{
-}
+MapWidget::~MapWidget() {}
 
-void MapWidget::loadMap(const QString &filePath)
-{
-    load(filePath);
-    QSvgRenderer *renderer = this->renderer();
-    if (renderer) {
-        QRectF viewBox = renderer->viewBox();
-        if (!viewBox.isEmpty()) {
-            m_viewBox = viewBox;
+void MapWidget::loadMap() {
+    // ИСПРАВЛЕНО: правильная загрузка SVG
+    QSvgRenderer *renderer = new QSvgRenderer(this);
+    QFile mapFile(":/maps/russia.svg");
+
+    if (mapFile.exists()) {
+        // Читаем содержимое файла в QByteArray
+        if (mapFile.open(QIODevice::ReadOnly)) {
+            QByteArray svgData = mapFile.readAll();
+            mapFile.close();
+
+            if (renderer->load(svgData)) {
+                m_mapItem = new QGraphicsSvgItem();
+                m_mapItem->setSharedRenderer(renderer);
+                m_scene->addItem(m_mapItem);
+                m_scene->setSceneRect(m_mapItem->boundingRect());
+                qDebug() << "Map loaded successfully";
+            } else {
+                qDebug() << "Failed to load SVG data";
+                createFallbackMap();
+            }
+        } else {
+            qDebug() << "Failed to open map file";
+            createFallbackMap();
         }
+    } else {
+        qDebug() << "Map file not found, using fallback";
+        createFallbackMap();
     }
-    update();
+
+    fitInView(m_scene->sceneRect(), Qt::KeepAspectRatio);
 }
 
-void MapWidget::loadScheme(const QString &filePath)
-{
-    load(filePath);
-    update();
+void MapWidget::createFallbackMap() {
+    QGraphicsRectItem *rect = m_scene->addRect(0, 0, 1920, 1080);
+    rect->setBrush(QColor(232, 244, 248));
+    QGraphicsTextItem *text = m_scene->addText("Карта не загружена");
+    text->setPos(960 - 100, 500);
 }
 
-void MapWidget::setObjects(const QJsonArray &objects)
-{
+void MapWidget::setObjects(const QList<Object> &objects) {
     m_objects = objects;
-    renderObjects();
+    createObjectItems();
 }
 
-void MapWidget::setSensors(const QJsonArray &sensors)
-{
-    m_sensors = sensors;
-    renderSensors();
-}
+void MapWidget::createObjectItems() {
+    // Очищаем старые объекты
+    qDeleteAll(m_objectItems);
+    m_objectItems.clear();
 
-void MapWidget::setInteractive(bool enabled)
-{
-    m_isInteractive = enabled;
-}
+    for (const Object &obj : m_objects) {
+        if (!obj.parentObjectId().isEmpty()) continue;
 
-void MapWidget::renderObjects()
-{
-    update();
-}
+        QGraphicsItemGroup *group = new QGraphicsItemGroup();
 
-void MapWidget::renderSensors()
-{
-    update();
-}
+        QGraphicsRectItem *rect = new QGraphicsRectItem(
+            obj.positionX() - obj.sizeWidth()/2,
+            obj.positionY() - obj.sizeHeight()/2,
+            obj.sizeWidth(),
+            obj.sizeHeight()
+        );
+        rect->setBrush(QColor(obj.colorCode()));
+        rect->setPen(QPen(Qt::white, 2));
+        rect->setData(0, obj.id());
+        group->addToGroup(rect);
 
-void MapWidget::paintEvent(QPaintEvent *event)
-{
-    QSvgWidget::paintEvent(event);
+        QGraphicsTextItem *text = new QGraphicsTextItem(obj.name());
+        text->setDefaultTextColor(Qt::white);
+        text->setPos(obj.positionX() - 30, obj.positionY() + obj.sizeHeight()/2 + 5);
+        text->setData(0, obj.id());
+        group->addToGroup(text);
 
-    QPainter painter(this);
-    painter.setRenderHint(QPainter::Antialiasing);
-
-    // Отрисовка объектов
-    for (const QJsonValue &value : m_objects) {
-        renderObject(value.toObject());
-    }
-
-    // Отрисовка датчиков
-    for (const QJsonValue &value : m_sensors) {
-        renderSensor(value.toObject());
+        m_objectItems[obj.id()] = group;
+        m_scene->addItem(group);
     }
 }
 
-void MapWidget::renderObject(const QJsonObject &obj)
-{
-    QPainter painter(this);
-
-    QString objectId = obj["object_id"].toString();
-    QString name = obj["name"].toString();
-    qreal x = obj["position_x"].toDouble();
-    qreal y = obj["position_y"].toDouble();
-    qreal width = obj["size_width"].toDouble();
-    qreal height = obj["size_height"].toDouble();
-
-    // Конвертируем координаты из SVG в экранные
-    QPointF topLeft = mapToSvg(QPointF(x, y));
-    QPointF bottomRight = mapToSvg(QPointF(x + width, y + height));
-
-    QRectF rect(topLeft, bottomRight);
-
-    // Рисуем прямоугольник объекта
-    painter.setBrush(QBrush(QColor("#333333"), Qt::SolidPattern));
-    painter.setPen(QPen(QColor("#FFFFFF"), 2));
-    painter.drawRoundedRect(rect, 5, 5);
-
-    // Рисуем название
-    painter.setPen(QColor("#FFFFFF"));
-    painter.setFont(QFont("Arial", 10));
-    painter.drawText(rect, Qt::AlignCenter, name);
-
-    // Подсветка при наведении
-    if (objectId == m_highlightedObjectId) {
-        painter.setPen(QPen(QColor("#89B4FA"), 3));
-        painter.drawRoundedRect(rect.adjusted(-2, -2, 2, 2), 5, 5);
+void MapWidget::filterObjects(const QString &text) {
+    m_filterText = text;
+    for (auto it = m_objectItems.begin(); it != m_objectItems.end(); ++it) {
+        bool visible = text.isEmpty() ||
+                       it.key().contains(text, Qt::CaseInsensitive);
+        it.value()->setVisible(visible);
     }
 }
 
-void MapWidget::renderSensor(const QJsonObject &sensor)
-{
-    QPainter painter(this);
-
-    QString sensorId = sensor["sensor_id"].toString();
-    QString name = sensor["name"].toString();
-    qreal x = sensor["position_x"].toDouble();
-    qreal y = sensor["position_y"].toDouble();
-    qreal value = sensor["last_value"].toDouble();
-    QString color = sensor["sensor_type"].toObject()["color_code"].toString("#FF9800");
-
-    QPointF center = mapToSvg(QPointF(x, y));
-
-    // Рисуем круг датчика
-    painter.setBrush(QBrush(QColor(color), Qt::SolidPattern));
-    painter.setPen(QPen(QColor("#FFFFFF"), 2));
-    painter.drawEllipse(center, 12, 12);
-
-    // Рисуем значение
-    painter.setPen(QColor("#FFFFFF"));
-    painter.setFont(QFont("Arial", 9, QFont::Bold));
-    painter.drawText(center + QPointF(-10, -15), QString::number(value));
-
-    // Рисуем название
-    painter.setPen(QColor("#333333"));
-    painter.setFont(QFont("Arial", 9));
-    painter.drawText(center + QPointF(18, 4), name);
-
-    // Подсветка при наведении
-    if (sensorId == m_highlightedSensorId) {
-        painter.setPen(QPen(QColor("#89B4FA"), 2));
-        painter.drawEllipse(center, 16, 16);
-    }
+void MapWidget::clear() {
+    m_scene->clear();
+    m_objectItems.clear();
 }
 
-QPointF MapWidget::mapToSvg(const QPointF &point)
-{
-    qreal x = point.x() / width() * m_viewBox.width() + m_viewBox.x();
-    qreal y = point.y() / height() * m_viewBox.height() + m_viewBox.y();
-    return QPointF(x, y);
+void MapWidget::wheelEvent(QWheelEvent *event) {
+    qreal factor = 1.1;
+    if (event->angleDelta().y() < 0) {
+        factor = 0.9;
+    }
+    scale(factor, factor);
+    m_scale *= factor;
 }
 
-void MapWidget::mousePressEvent(QMouseEvent *event)
-{
-    if (!m_isInteractive) {
-        QSvgWidget::mousePressEvent(event);
-        return;
-    }
-
+void MapWidget::mousePressEvent(QMouseEvent *event) {
     if (event->button() == Qt::LeftButton) {
-        m_isDragging = true;
-        m_lastMousePos = event->pos();
+        QPointF scenePos = mapToScene(event->pos());
+        QGraphicsItem *item = m_scene->itemAt(scenePos, transform());
+
+        if (item) {
+            QVariant data = item->data(0);
+            if (data.isValid()) {
+                QString objectId = data.toString();
+                if (!objectId.isEmpty()) {
+                    emit objectSelected(objectId);
+                    return;
+                }
+            }
+        }
+
+        m_isPanning = true;
+        m_lastPanPoint = event->pos();
         setCursor(Qt::ClosedHandCursor);
     }
-    QSvgWidget::mousePressEvent(event);
+    QGraphicsView::mousePressEvent(event);
 }
 
-void MapWidget::mouseMoveEvent(QMouseEvent *event)
-{
-    if (!m_isInteractive) {
-        QSvgWidget::mouseMoveEvent(event);
-        return;
+// ИСПРАВЛЕНО: используем translate вместо scrollBar
+void MapWidget::mouseMoveEvent(QMouseEvent *event) {
+    if (m_isPanning) {
+        QPointF delta = event->pos() - m_lastPanPoint;
+        // Используем translate для панорамирования
+        QTransform transform = this->transform();
+        transform.translate(delta.x() / transform.m11(), delta.y() / transform.m22());
+        setTransform(transform);
+        m_lastPanPoint = event->pos();
     }
-
-    if (m_isDragging) {
-        QPointF delta = event->pos() - m_lastMousePos;
-        m_lastMousePos = event->pos();
-
-        qreal dx = delta.x() * (m_viewBox.width() / width());
-        qreal dy = delta.y() * (m_viewBox.height() / height());
-
-        m_viewBox.moveLeft(m_viewBox.x() - dx);
-        m_viewBox.moveTop(m_viewBox.y() - dy);
-
-        QSvgRenderer *renderer = this->renderer();
-        if (renderer) {
-            renderer->setViewBox(m_viewBox);
-        }
-        update();
-    }
-    QSvgWidget::mouseMoveEvent(event);
+    QGraphicsView::mouseMoveEvent(event);
 }
 
-void MapWidget::mouseReleaseEvent(QMouseEvent *event)
-{
-    if (!m_isInteractive) {
-        QSvgWidget::mouseReleaseEvent(event);
-        return;
-    }
-
+void MapWidget::mouseReleaseEvent(QMouseEvent *event) {
     if (event->button() == Qt::LeftButton) {
-        m_isDragging = false;
+        m_isPanning = false;
         setCursor(Qt::ArrowCursor);
     }
-    QSvgWidget::mouseReleaseEvent(event);
+    QGraphicsView::mouseReleaseEvent(event);
 }
 
-void MapWidget::wheelEvent(QWheelEvent *event)
-{
-    if (!m_isInteractive) {
-        QSvgWidget::wheelEvent(event);
-        return;
-    }
-
-    QPointF mousePos = event->position();
-    QPointF svgPos = mapToSvg(mousePos);
-
-    qreal factor = event->angleDelta().y() > 0 ? 0.9 : 1.1;
-    qreal newScale = m_scale * factor;
-
-    if (newScale < MIN_SCALE) factor = MIN_SCALE / m_scale;
-    if (newScale > MAX_SCALE) factor = MAX_SCALE / m_scale;
-    if (factor == 1.0) return;
-
-    m_scale *= factor;
-
-    qreal newWidth = m_viewBox.width() * factor;
-    qreal newHeight = m_viewBox.height() * factor;
-    qreal newX = svgPos.x() - (svgPos.x() - m_viewBox.x()) * factor;
-    qreal newY = svgPos.y() - (svgPos.y() - m_viewBox.y()) * factor;
-
-    m_viewBox.setRect(newX, newY, newWidth, newHeight);
-
-    QSvgRenderer *renderer = this->renderer();
-    if (renderer) {
-        renderer->setViewBox(m_viewBox);
-    }
-    update();
-
-    event->accept();
+void MapWidget::resizeEvent(QResizeEvent *event) {
+    QGraphicsView::resizeEvent(event);
 }
 
-void MapWidget::resetView()
-{
-    m_viewBox = QRectF(0, 0, 1920, 1080);
-    m_scale = 1.0;
-    QSvgRenderer *renderer = this->renderer();
-    if (renderer) {
-        renderer->setViewBox(m_viewBox);
-    }
-    update();
-}
-
-void MapWidget::zoomIn()
-{
-    QPointF center = m_viewBox.center();
-    qreal factor = 0.8;
-    qreal newWidth = m_viewBox.width() * factor;
-    qreal newHeight = m_viewBox.height() * factor;
-    m_viewBox.setRect(center.x() - newWidth/2, center.y() - newHeight/2, newWidth, newHeight);
-
-    QSvgRenderer *renderer = this->renderer();
-    if (renderer) {
-        renderer->setViewBox(m_viewBox);
-    }
-    update();
-}
-
-void MapWidget::zoomOut()
-{
-    QPointF center = m_viewBox.center();
-    qreal factor = 1.2;
-    qreal newWidth = m_viewBox.width() * factor;
-    qreal newHeight = m_viewBox.height() * factor;
-    m_viewBox.setRect(center.x() - newWidth/2, center.y() - newHeight/2, newWidth, newHeight);
-
-    QSvgRenderer *renderer = this->renderer();
-    if (renderer) {
-        renderer->setViewBox(m_viewBox);
-    }
-    update();
-}
-
-void MapWidget::fitToView()
-{
-    resetView();
-}
-
-void MapWidget::highlightObject(const QString &objectId)
-{
-    m_highlightedObjectId = objectId;
-    update();
-}
-
-void MapWidget::highlightSensor(const QString &sensorId)
-{
-    m_highlightedSensorId = sensorId;
-    update();
-}

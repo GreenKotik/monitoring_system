@@ -29,6 +29,9 @@ public:
     QDateTime createdAt() const { return m_createdAt; }
     bool isActive() const { return m_isActive; }
     bool isValid() const { return !m_id.isEmpty(); }
+    QString description() const { return m_description; }
+    double positionX() const { return m_positionX; }
+    double positionY() const { return m_positionY; }
 
     // Сеттеры
     void setId(const QString &id) { m_id = id; }
@@ -47,6 +50,9 @@ public:
     void setLastUpdate(const QDateTime &dt) { m_lastUpdate = dt; }
     void setCreatedAt(const QDateTime &dt) { m_createdAt = dt; }
     void setIsActive(bool active) { m_isActive = active; }
+    void setDescription(const QString &desc) { m_description = desc; }
+    void setPositionX(double x) { m_positionX = x; }
+    void setPositionY(double y) { m_positionY = y; }
 
     // JSON сериализация
     QJsonObject toJson() const;
@@ -73,4 +79,7 @@ private:
     QDateTime m_lastUpdate;
     QDateTime m_createdAt;
     bool m_isActive = true;
+    QString m_description;
+    double m_positionX = 0.0;
+    double m_positionY = 0.0;
 };

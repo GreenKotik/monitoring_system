@@ -11,6 +11,7 @@ set(CORE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../core)
 
 set(SOURCES
     src/main.cpp
+    src/traymanager.cpp
     src/httpserver.cpp
     src/httprouter.cpp
     src/httprequest.cpp
@@ -30,9 +31,11 @@ set(SOURCES
     ${CORE_DIR}/src/database/dbmigrations.cpp
     ${CORE_DIR}/src/utils/config.cpp
     ${CORE_DIR}/src/utils/helpers.cpp
+    ${CORE_DIR}/src/utils/logger.cpp          
 )
 
 set(HEADERS
+    include/traymanager.h 
     include/httpserver.h
     include/httprouter.h
     include/httprequest.h
@@ -53,6 +56,7 @@ set(HEADERS
     ${CORE_DIR}/include/database/dbmigrations.h
     ${CORE_DIR}/include/utils/config.h
     ${CORE_DIR}/include/utils/helpers.h
+    ${CORE_DIR}/include/utils/logger.h          
 )
 
 add_executable(app_server ${SOURCES} ${HEADERS})

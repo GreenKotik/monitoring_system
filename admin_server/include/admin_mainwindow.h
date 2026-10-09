@@ -6,11 +6,12 @@
 #include <QTableWidget>
 #include <QToolBar>
 #include <QStatusBar>
+#include <QPushButton>
 #include <QJsonArray>
 #include "admin_apiclient.h"
-#include "core/models/object.h"
-#include "core/models/sensor.h"
-#include "core/models/user.h"
+#include "models/object.h"      // Вместо "core/models/object.h"
+#include "models/sensor.h"      // Вместо "core/models/sensor.h"
+#include "models/user.h"        // Вместо "core/models/user.h"
 
 class AdminMainWindow : public QMainWindow
 {
@@ -63,12 +64,10 @@ private:
     void updateStatusBar();
     void loadData();
 
-    // Вкладки
     void setupObjectsTab();
     void setupSensorsTab();
     void setupUsersTab();
 
-    // Таблицы
     void populateObjectsTable(const QList<Object> &objects);
     void populateSensorsTable(const QList<Sensor> &sensors);
     void populateUsersTable(const QList<User> &users);
@@ -77,7 +76,6 @@ private:
     QTabWidget *m_tabWidget;
     QToolBar *m_toolBar;
 
-    // Вкладка объектов
     QWidget *m_objectsTab;
     QTableWidget *m_objectsTable;
     QPushButton *m_addObjectBtn;
@@ -85,7 +83,6 @@ private:
     QPushButton *m_deleteObjectBtn;
     QPushButton *m_refreshObjectsBtn;
 
-    // Вкладка датчиков
     QWidget *m_sensorsTab;
     QTableWidget *m_sensorsTable;
     QPushButton *m_addSensorBtn;
@@ -93,7 +90,6 @@ private:
     QPushButton *m_deleteSensorBtn;
     QPushButton *m_refreshSensorsBtn;
 
-    // Вкладка пользователей
     QWidget *m_usersTab;
     QTableWidget *m_usersTable;
     QPushButton *m_addUserBtn;

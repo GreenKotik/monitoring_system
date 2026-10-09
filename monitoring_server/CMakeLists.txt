@@ -47,7 +47,7 @@ set(CORE_SOURCES
     ${CORE_BASE}/src/models/user.cpp
     ${CORE_BASE}/src/utils/config.cpp
     ${CORE_BASE}/src/utils/helpers.cpp
-    ${CORE_BASE}/src/utils/logger.cpp          # <-- ДОБАВЛЕНО
+    ${CORE_BASE}/src/utils/logger.cpp          
 )
 
 set(CORE_HEADERS
@@ -62,7 +62,7 @@ set(CORE_HEADERS
     ${CORE_BASE}/include/models/user.h
     ${CORE_BASE}/include/utils/config.h
     ${CORE_BASE}/include/utils/helpers.h
-    ${CORE_BASE}/include/utils/logger.h          # <-- ДОБАВЛЕНО
+    ${CORE_BASE}/include/utils/logger.h          
 )
 
 add_executable(monitoring_server ${SOURCES} ${HEADERS} ${CORE_SOURCES} ${CORE_HEADERS})

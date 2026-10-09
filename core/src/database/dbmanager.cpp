@@ -1,6 +1,5 @@
 #include "database/dbmanager.h"
 #include "database/dbmigrations.h"
-#include "utils/logger.h"
 #include <QSqlRecord>
 #include <QVariant>
 #include <QDebug>
@@ -34,14 +33,14 @@ bool DbManager::connect(const QString &host, int port, const QString &database,
 
     if (!m_db.open()) {
         m_lastError = m_db.lastError().text();
-        Logger::instance().error("Database connection failed: " + m_lastError);
+        qCritical() << "Database connection failed:" << m_lastError;
         return false;
     }
 
-    Logger::instance().info("Database connected successfully");
+    qInfo() << "Database connected successfully";
 
     if (!runMigrations()) {
-        Logger::instance().error("Database migrations failed");
+        qCritical() << "Database migrations failed";
         return false;
     }
 
@@ -58,14 +57,14 @@ void DbManager::disconnect()
 QSqlQuery DbManager::executeQuery(const QString &query, const QVariantList &params)
 {
     if (!m_db.isOpen()) {
-        Logger::instance().error("Database not connected");
+        qCritical() << "Database not connected";
         return QSqlQuery();
     }
 
     QSqlQuery sqlQuery(m_db);
     if (!sqlQuery.prepare(query)) {
         m_lastError = sqlQuery.lastError().text();
-        Logger::instance().error("Query prepare failed: " + m_lastError);
+        qCritical() << "Query prepare failed:" << m_lastError;
         return sqlQuery;
     }
 
@@ -75,7 +74,7 @@ QSqlQuery DbManager::executeQuery(const QString &query, const QVariantList &para
 
     if (!sqlQuery.exec()) {
         m_lastError = sqlQuery.lastError().text();
-        Logger::instance().error("Query execution failed: " + m_lastError);
+        qCritical() << "Query execution failed:" << m_lastError;
         return sqlQuery;
     }
 
@@ -85,26 +84,32 @@ QSqlQuery DbManager::executeQuery(const QString &query, const QVariantList &para
 QList<Object> DbManager::getObjects(const QString &parentId)
 {
     QList<Object> objects;
-    QString query = "SELECT * FROM objects";
+    // ✅ ИСПРАВЛЕНО: используем object_id и делаем JOIN с object_types
+    QString query = "SELECT o.object_id, o.object_type_id, o.parent_object_id, o.name, "
+                    "o.description, o.position_x, o.position_y, o.size_width, o.size_height, "
+                    "o.svg_scheme_path, o.status, o.created_at, "
+                    "ot.type_code, ot.type_name, ot.color_code, ot.svg_icon_path "
+                    "FROM objects o "
+                    "LEFT JOIN object_types ot ON o.object_type_id = ot.type_id ";
     QVariantList params;
 
     if (!parentId.isEmpty()) {
-        query += " WHERE parent_object_id = ?";
+        query += "WHERE o.parent_object_id = ?";
         params.append(parentId);
     }
 
-    query += " ORDER BY name";
+    query += " ORDER BY o.name";
 
     QSqlQuery sqlQuery = executeQuery(query, params);
     if (!sqlQuery.isActive()) return objects;
 
     while (sqlQuery.next()) {
         Object obj;
-        obj.setId(sqlQuery.value("id").toString());
-        obj.setName(sqlQuery.value("name").toString());
-        obj.setTypeId(sqlQuery.value("type_id").toString());
+        obj.setId(sqlQuery.value("object_id").toString());
+        obj.setTypeId(sqlQuery.value("object_type_id").toString());
         obj.setTypeName(sqlQuery.value("type_name").toString());
         obj.setParentObjectId(sqlQuery.value("parent_object_id").toString());
+        obj.setName(sqlQuery.value("name").toString());
         obj.setDescription(sqlQuery.value("description").toString());
         obj.setPositionX(sqlQuery.value("position_x").toDouble());
         obj.setPositionY(sqlQuery.value("position_y").toDouble());
@@ -112,9 +117,8 @@ QList<Object> DbManager::getObjects(const QString &parentId)
         obj.setSizeHeight(sqlQuery.value("size_height").toDouble());
         obj.setColorCode(sqlQuery.value("color_code").toString());
         obj.setSvgSchemePath(sqlQuery.value("svg_scheme_path").toString());
-        obj.setIsActive(sqlQuery.value("is_active").toBool());
+        obj.setIsActive(sqlQuery.value("status").toString() == "active");
         obj.setCreatedAt(sqlQuery.value("created_at").toDateTime());
-        obj.setUpdatedAt(sqlQuery.value("updated_at").toDateTime());
         objects.append(obj);
     }
 
@@ -139,25 +143,23 @@ Object DbManager::getObject(const QString &objectId)
 
 bool DbManager::createObject(const Object &object)
 {
-    QString query = "INSERT INTO objects (id, name, type_id, type_name, parent_object_id, "
-                    "description, position_x, position_y, size_width, size_height, "
-                    "color_code, svg_scheme_path, is_active) "
-                    "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+    QString query = "INSERT INTO objects (object_id, object_type_id, parent_object_id, "
+                    "name, description, position_x, position_y, size_width, size_height, "
+                    "svg_scheme_path, status) "
+                    "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
 
     QVariantList params;
     params.append(object.id());
-    params.append(object.name());
-    params.append(object.typeId());
-    params.append(object.typeName());
+    params.append(object.typeId().toInt());
     params.append(object.parentObjectId());
+    params.append(object.name());
     params.append(object.description());
     params.append(object.positionX());
     params.append(object.positionY());
     params.append(object.sizeWidth());
     params.append(object.sizeHeight());
-    params.append(object.colorCode());
     params.append(object.svgSchemePath());
-    params.append(object.isActive());
+    params.append(object.isActive() ? "active" : "inactive");
 
     QSqlQuery sqlQuery = executeQuery(query, params);
     return sqlQuery.isActive();
@@ -165,24 +167,22 @@ bool DbManager::createObject(const Object &object)
 
 bool DbManager::updateObject(const Object &object)
 {
-    QString query = "UPDATE objects SET name = ?, type_id = ?, type_name = ?, "
-                    "parent_object_id = ?, description = ?, position_x = ?, position_y = ?, "
-                    "size_width = ?, size_height = ?, color_code = ?, svg_scheme_path = ?, "
-                    "is_active = ?, updated_at = NOW() WHERE id = ?";
+    QString query = "UPDATE objects SET object_type_id = ?, parent_object_id = ?, "
+                    "name = ?, description = ?, position_x = ?, position_y = ?, "
+                    "size_width = ?, size_height = ?, svg_scheme_path = ?, status = ? "
+                    "WHERE object_id = ?";
 
     QVariantList params;
-    params.append(object.name());
-    params.append(object.typeId());
-    params.append(object.typeName());
+    params.append(object.typeId().toInt());
     params.append(object.parentObjectId());
+    params.append(object.name());
     params.append(object.description());
     params.append(object.positionX());
     params.append(object.positionY());
     params.append(object.sizeWidth());
     params.append(object.sizeHeight());
-    params.append(object.colorCode());
     params.append(object.svgSchemePath());
-    params.append(object.isActive());
+    params.append(object.isActive() ? "active" : "inactive");
     params.append(object.id());
 
     QSqlQuery sqlQuery = executeQuery(query, params);
@@ -191,7 +191,7 @@ bool DbManager::updateObject(const Object &object)
 
 bool DbManager::deleteObject(const QString &objectId)
 {
-    QString query = "DELETE FROM objects WHERE id = ?";
+    QString query = "DELETE FROM objects WHERE object_id = ?";
     QVariantList params;
     params.append(objectId);
 
@@ -202,37 +202,45 @@ bool DbManager::deleteObject(const QString &objectId)
 QList<Sensor> DbManager::getSensors(const QString &objectId)
 {
     QList<Sensor> sensors;
-    QString query = "SELECT * FROM sensors";
+    // ✅ ИСПРАВЛЕНО: используем sensor_id и делаем JOIN с sensor_types
+    QString query = "SELECT s.sensor_id, s.type_id, s.object_id, s.name, "
+                    "s.description, s.position_x, s.position_y, s.status, "
+                    "s.last_value, s.last_update, s.install_date, "
+                    "s.protocol, s.host, s.port, s.community, s.oid, "
+                    "s.modbus_address, s.modbus_register, s.poll_interval, s.enabled, "
+                    "s.connection_params, "
+                    "st.type_code, st.type_name, st.unit, st.color_code "
+                    "FROM sensors s "
+                    "LEFT JOIN sensor_types st ON s.type_id = st.type_id ";
     QVariantList params;
 
     if (!objectId.isEmpty()) {
-        query += " WHERE object_id = ?";
+        query += "WHERE s.object_id = ?";
         params.append(objectId);
     }
 
-    query += " ORDER BY name";
+    query += " ORDER BY s.name";
 
     QSqlQuery sqlQuery = executeQuery(query, params);
     if (!sqlQuery.isActive()) return sensors;
 
     while (sqlQuery.next()) {
         Sensor sensor;
-        sensor.setId(sqlQuery.value("id").toString());
-        sensor.setName(sqlQuery.value("name").toString());
+        sensor.setId(sqlQuery.value("sensor_id").toString());
         sensor.setTypeId(sqlQuery.value("type_id").toString());
         sensor.setTypeName(sqlQuery.value("type_name").toString());
         sensor.setObjectId(sqlQuery.value("object_id").toString());
-        sensor.setObjectName(sqlQuery.value("object_name").toString());
-        sensor.setUnit(sqlQuery.value("unit").toString());
-        sensor.setMinValue(sqlQuery.value("min_value").toDouble());
-        sensor.setMaxValue(sqlQuery.value("max_value").toDouble());
-        sensor.setLastValue(sqlQuery.value("last_value").toDouble());
+        sensor.setName(sqlQuery.value("name").toString());
+        sensor.setDescription(sqlQuery.value("description").toString());
+        sensor.setPositionX(sqlQuery.value("position_x").toDouble());
+        sensor.setPositionY(sqlQuery.value("position_y").toDouble());
         sensor.setStatus(sqlQuery.value("status").toString());
-        sensor.setPollingInterval(sqlQuery.value("polling_interval").toInt());
-        sensor.setConnectionParams(sqlQuery.value("connection_params").toString());
+        sensor.setLastValue(sqlQuery.value("last_value").toDouble());
         sensor.setLastUpdate(sqlQuery.value("last_update").toDateTime());
-        sensor.setCreatedAt(sqlQuery.value("created_at").toDateTime());
-        sensor.setIsActive(sqlQuery.value("is_active").toBool());
+        sensor.setCreatedAt(sqlQuery.value("install_date").toDateTime());
+        sensor.setUnit(sqlQuery.value("unit").toString());
+        sensor.setConnectionParams(sqlQuery.value("connection_params").toString());
+        sensor.setIsActive(sqlQuery.value("enabled").toBool());
         sensors.append(sensor);
     }
 
@@ -252,25 +260,30 @@ Sensor DbManager::getSensor(const QString &sensorId)
 
 bool DbManager::createSensor(const Sensor &sensor)
 {
-    QString query = "INSERT INTO sensors (id, name, type_id, type_name, object_id, object_name, "
-                    "unit, min_value, max_value, last_value, status, polling_interval, "
-                    "connection_params, is_active) "
-                    "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+    QString query = "INSERT INTO sensors (sensor_id, type_id, object_id, name, "
+                    "description, position_x, position_y, status, install_date, "
+                    "protocol, host, port, community, oid, connection_params, enabled) "
+                    "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
 
     QVariantList params;
     params.append(sensor.id());
-    params.append(sensor.name());
-    params.append(sensor.typeId());
-    params.append(sensor.typeName());
+    params.append(sensor.typeId().toInt());
     params.append(sensor.objectId());
-    params.append(sensor.objectName());
-    params.append(sensor.unit());
-    params.append(sensor.minValue());
-    params.append(sensor.maxValue());
-    params.append(sensor.lastValue());
+    params.append(sensor.name());
+    params.append(sensor.description());
+    params.append(sensor.positionX());
+    params.append(sensor.positionY());
     params.append(sensor.status());
-    params.append(sensor.pollingInterval());
-    params.append(sensor.connectionParams());
+    params.append(sensor.createdAt());
+
+    // Парсим connection_params для извлечения сетевых настроек
+    QJsonObject conn = QJsonDocument::fromJson(sensor.connectionParams().toUtf8()).object();
+    params.append(conn["protocol"].toString("snmp"));
+    params.append(conn["host"].toString());
+    params.append(conn["port"].toInt(161));
+    params.append(conn["community"].toString("public"));
+    params.append(conn["oid"].toString());
+    params.append(sensor.connectionParams()); // сохраняем и как JSON
     params.append(sensor.isActive());
 
     QSqlQuery sqlQuery = executeQuery(query, params);
@@ -279,23 +292,21 @@ bool DbManager::createSensor(const Sensor &sensor)
 
 bool DbManager::updateSensor(const Sensor &sensor)
 {
-    QString query = "UPDATE sensors SET name = ?, type_id = ?, type_name = ?, "
-                    "object_id = ?, object_name = ?, unit = ?, min_value = ?, max_value = ?, "
-                    "last_value = ?, status = ?, polling_interval = ?, connection_params = ?, "
-                    "is_active = ?, last_update = NOW() WHERE id = ?";
+    QString query = "UPDATE sensors SET type_id = ?, object_id = ?, name = ?, "
+                    "description = ?, position_x = ?, position_y = ?, status = ?, "
+                    "last_value = ?, last_update = ?, connection_params = ?, enabled = ? "
+                    "WHERE sensor_id = ?";
 
     QVariantList params;
-    params.append(sensor.name());
-    params.append(sensor.typeId());
-    params.append(sensor.typeName());
+    params.append(sensor.typeId().toInt());
     params.append(sensor.objectId());
-    params.append(sensor.objectName());
-    params.append(sensor.unit());
-    params.append(sensor.minValue());
-    params.append(sensor.maxValue());
-    params.append(sensor.lastValue());
+    params.append(sensor.name());
+    params.append(sensor.description());
+    params.append(sensor.positionX());
+    params.append(sensor.positionY());
     params.append(sensor.status());
-    params.append(sensor.pollingInterval());
+    params.append(sensor.lastValue());
+    params.append(sensor.lastUpdate());
     params.append(sensor.connectionParams());
     params.append(sensor.isActive());
     params.append(sensor.id());
@@ -306,7 +317,7 @@ bool DbManager::updateSensor(const Sensor &sensor)
 
 bool DbManager::deleteSensor(const QString &sensorId)
 {
-    QString query = "DELETE FROM sensors WHERE id = ?";
+    QString query = "DELETE FROM sensors WHERE sensor_id = ?";
     QVariantList params;
     params.append(sensorId);
 
@@ -328,7 +339,9 @@ bool DbManager::addReading(const QString &sensorId, qreal value)
 QList<SensorReading> DbManager::getHistory(const QString &sensorId, int count)
 {
     QList<SensorReading> history;
-    QString query = "SELECT * FROM sensor_readings "
+    // ✅ ИСПРАВЛЕНО: используем reading_id, убираем несуществующий quality
+    QString query = "SELECT reading_id, sensor_id, value, timestamp "
+                    "FROM sensor_readings "
                     "WHERE sensor_id = ? "
                     "ORDER BY timestamp DESC LIMIT ?";
 
@@ -341,10 +354,9 @@ QList<SensorReading> DbManager::getHistory(const QString &sensorId, int count)
 
     while (sqlQuery.next()) {
         SensorReading reading;
-        reading.setId(sqlQuery.value("id").toString());
+        reading.setId(sqlQuery.value("reading_id").toString());
         reading.setSensorId(sqlQuery.value("sensor_id").toString());
         reading.setValue(sqlQuery.value("value").toDouble());
-        reading.setQuality(sqlQuery.value("quality").toString());
         reading.setTimestamp(sqlQuery.value("timestamp").toDateTime());
         history.append(reading);
     }
@@ -357,7 +369,8 @@ QList<SensorReading> DbManager::getHistory(const QString &sensorId,
                                           const QDateTime &to)
 {
     QList<SensorReading> history;
-    QString query = "SELECT * FROM sensor_readings "
+    QString query = "SELECT reading_id, sensor_id, value, timestamp "
+                    "FROM sensor_readings "
                     "WHERE sensor_id = ? AND timestamp BETWEEN ? AND ? "
                     "ORDER BY timestamp ASC";
 
@@ -371,10 +384,9 @@ QList<SensorReading> DbManager::getHistory(const QString &sensorId,
 
     while (sqlQuery.next()) {
         SensorReading reading;
-        reading.setId(sqlQuery.value("id").toString());
+        reading.setId(sqlQuery.value("reading_id").toString());
         reading.setSensorId(sqlQuery.value("sensor_id").toString());
         reading.setValue(sqlQuery.value("value").toDouble());
-        reading.setQuality(sqlQuery.value("quality").toString());
         reading.setTimestamp(sqlQuery.value("timestamp").toDateTime());
         history.append(reading);
     }
@@ -458,15 +470,14 @@ bool DbManager::runMigrations()
 QList<SensorConfig> DbManager::getActiveSensors()
 {
     QList<SensorConfig> sensors;
-
-    // ✅ Читаем из отдельных колонок
+    // ✅ ИСПРАВЛЕНО: используем реальные имена колонок из дампа БД
     QString query = "SELECT sensor_id, name, protocol, host, port, community, oid, "
-                    "modbus_address, modbus_register, polling_interval, is_active "
-                    "FROM sensors WHERE is_active = true";
+                    "modbus_address, modbus_register, poll_interval, enabled, connection_params "
+                    "FROM sensors WHERE enabled = true";
 
     QSqlQuery sqlQuery = executeQuery(query);
     if (!sqlQuery.isActive()) {
-        Logger::instance().error("Failed to load sensors: " + m_lastError);
+        qCritical() << "Failed to load sensors:" << m_lastError;
         return sensors;
     }
 
@@ -488,10 +499,10 @@ QList<SensorConfig> DbManager::getActiveSensors()
 
         sensor.modbusRegister = sqlQuery.value("modbus_register").toInt();
 
-        int pi = sqlQuery.value("polling_interval").toInt();
+        int pi = sqlQuery.value("poll_interval").toInt();
         sensor.pollIntervalMs = (pi == 0) ? 5000 : pi;
 
-        sensor.enabled = sqlQuery.value("is_active").toBool();
+        sensor.enabled = sqlQuery.value("enabled").toBool();
 
         sensors.append(sensor);
     }

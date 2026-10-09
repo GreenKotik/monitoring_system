@@ -1,15 +1,12 @@
-#ifndef MAPWIDGET_H
-#define MAPWIDGET_H
+#pragma once
 
-#include <QSvgWidget>
-#include <QPointF>
-#include <QMouseEvent>
-#include <QWheelEvent>
-#include <QJsonObject>
-#include <QJsonArray>
-#include <QPixmap>
+#include <QGraphicsView>
+#include <QGraphicsScene>
+#include <QGraphicsSvgItem>
+#include <QMap>
+#include "models/object.h"
 
-class MapWidget : public QSvgWidget
+class MapWidget : public QGraphicsView
 {
     Q_OBJECT
 
@@ -17,55 +14,32 @@ public:
     explicit MapWidget(QWidget *parent = nullptr);
     ~MapWidget();
 
-    void loadMap(const QString &filePath);
-    void loadScheme(const QString &filePath);
-    void setObjects(const QJsonArray &objects);
-    void setSensors(const QJsonArray &sensors);
-    void setInteractive(bool enabled);
+    void setObjects(const QList<Object> &objects);
+    void filterObjects(const QString &text);
+    void clear();
 
-    void resetView();
-    void zoomIn();
-    void zoomOut();
-    void fitToView();
-
-    void highlightObject(const QString &objectId);
-    void highlightSensor(const QString &sensorId);
+signals:
+    void objectSelected(const QString &objectId);
 
 protected:
+    void wheelEvent(QWheelEvent *event) override;
     void mousePressEvent(QMouseEvent *event) override;
     void mouseMoveEvent(QMouseEvent *event) override;
     void mouseReleaseEvent(QMouseEvent *event) override;
-    void wheelEvent(QWheelEvent *event) override;
-    void paintEvent(QPaintEvent *event) override;
-
-signals:
-    void objectClicked(const QString &objectId);
-    void sensorClicked(const QString &sensorId);
-    void viewChanged(const QRectF &viewBox);
+    void resizeEvent(QResizeEvent *event) override;
 
 private:
-    void renderObjects();
-    void renderSensors();
-    void renderObject(const QJsonObject &obj);
-    void renderSensor(const QJsonObject &sensor);
-    QPointF mapToSvg(const QPointF &point);
-    QRectF getObjectBounds(const QJsonObject &obj);
+    void loadMap();
+    void createFallbackMap();
+    void createObjectItems();
 
-    QRectF m_viewBox;
-    QPointF m_lastMousePos;
-    bool m_isDragging = false;
-    bool m_isInteractive = true;
+    QGraphicsScene *m_scene;
+    QGraphicsSvgItem *m_mapItem;
+    QMap<QString, QGraphicsItemGroup*> m_objectItems;
+    QList<Object> m_objects;
+    QString m_filterText;
 
-    QJsonArray m_objects;
-    QJsonArray m_sensors;
-    QString m_highlightedObjectId;
-    QString m_highlightedSensorId;
-
-    qreal m_scale = 1.0;
-    const qreal MIN_SCALE = 0.5;
-    const qreal MAX_SCALE = 2.0;
-
-    QMap<QString, QPixmap> m_iconCache;
+    bool m_isPanning;
+    QPointF m_lastPanPoint;
+    qreal m_scale;
 };
-
-#endif // MAPWIDGET_H

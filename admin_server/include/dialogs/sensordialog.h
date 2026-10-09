@@ -5,7 +5,7 @@
 #include <QLineEdit>
 #include <QComboBox>
 #include <QDoubleSpinBox>
-#include "core/models/sensor.h"
+#include "models/sensor.h"  // Вместо "core/models/sensor.h"
 
 class SensorDialog : public QDialog
 {

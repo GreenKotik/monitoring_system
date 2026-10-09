@@ -32,7 +32,7 @@ void SensorController::get(const HttpRequest &request, HttpResponse &response) {
         return;
     }
 
-    Sensor sensor = DbManager::instance().getSensorById(sensorId);
+    Sensor sensor = DbManager::instance().getSensor(sensorId);
     if (!sensor.isValid()) {
         response.setStatus(404, "Not Found");
         response.setBody("{\"error\":\"Sensor not found\"}");

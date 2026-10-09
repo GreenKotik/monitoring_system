@@ -38,7 +38,7 @@ void MapController::getScheme(const HttpRequest &request, HttpResponse &response
     }
 
     // Получаем объект из БД
-    Object object = DbManager::instance().getObjectById(schemeId);
+    Object object = DbManager::instance().getObject(schemeId);
     if (!object.isValid()) {
         response.setStatus(404, "Not Found");
         response.setBody("{\"error\": \"Scheme not found\"}");
